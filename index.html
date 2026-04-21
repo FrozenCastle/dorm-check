@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正在跳转 - 智慧校园查寝系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        /* 背景动画 */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: backgroundMove 20s linear infinite;
+            z-index: -1;
+        }
+        
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 400px;
+            width: 90%;
+            animation: containerFadeIn 0.8s ease-out;
+        }
+        
+        @keyframes containerFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* 加载动画 */
+        .spinner {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 25px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            position: relative;
+        }
+        
+        .spinner::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 2s linear infinite reverse;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .message {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            animation: textFadeIn 0.6s ease-out 0.2s both;
+        }
+        
+        @keyframes textFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .hint {
+            font-size: 14px;
+            opacity: 0.85;
+            line-height: 1.6;
+            animation: textFadeIn 0.6s ease-out 0.4s both;
+        }
+        
+        .ip-display {
+            margin-top: 20px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            animation: textFadeIn 0.6s ease-out 0.6s both;
+        }
+        
+        .ip-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .ip-value {
+            font-weight: bold;
+            font-size: 15px;
+        }
+        
+        /* 按钮样式 */
+        .retry-btn {
+            margin-top: 25px;
+            padding: 12px 35px;
+            background: #fff;
+            color: #667eea;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            animation: buttonFadeIn 0.6s ease-out 0.8s both;
+            outline: none;
+        }
+        
+        .retry-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .retry-btn:active {
+            transform: translateY(0);
+        }
+        
+        @keyframes buttonFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* 错误状态 */
+        .error-icon {
+            font-size: 50px;
+            margin-bottom: 20px;
+            animation: shake 0.6s ease-out;
+            display: block;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            15% { transform: translateX(-15px); }
+            30% { transform: translateX(15px); }
+            45% { transform: translateX(-15px); }
+            60% { transform: translateX(15px); }
+            75% { transform: translateX(-10px); }
+        }
+        
+        .success-icon {
+            font-size: 50px;
+            margin-bottom: 20px;
+            animation: bounce 0.8s ease-out;
+            display: block;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            70% { transform: scale(0.9); }
+            85% { transform: scale(1.1); }
+        }
+        
+        /* 进度条 */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+            animation: fadeIn 0.6s ease-out 0.5s both;
+        }
+        
+        .progress-bar::after {
+            content: '';
+            display: block;
+            width: 50%;
+            height: 100%;
+            background: #fff;
+            animation: progress 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes progress {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* 隐藏类 */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            .message {
+                font-size: 18px;
+            }
+            
+            .hint {
+                font-size: 13px;
+            }
+            
+            .spinner {
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- 加载状态 -->
+        <div id="loading-state">
+            <div class="spinner"></div>
+            <div class="message">正在检测网络...</div>
+            <div class="hint">请稍候，正在检查校园网连接</div>
+            <div class="progress-bar"></div>
+        </div>
+        
+        <!-- 成功状态 -->
+        <div id="success-state" class="hidden">
+            <div class="success-icon">✅</div>
+            <div class="message">检测成功！</div>
+            <div class="hint">正在跳转到查寝系统...</div>
+            <div class="ip-display">
+                <div class="ip-label">系统地址</div>
+                <div class="ip-value" id="success-ip">--</div>
+            </div>
+        </div>
+        
+        <!-- 错误状态 -->
+        <div id="error-state" class="hidden">
+            <div class="error-icon">⚠️</div>
+            <div class="message">无法访问系统</div>
+            <div class="hint" id="error-hint">
+                请确保已连接校园网 WiFi<br>
+                当前系统仅支持校园网内访问
+            </div>
+            <button class="retry-btn" onclick="retry()">重试</button>
+        </div>
+    </div>
+    
+    <script>
+        // 配置
+        const CONFIG = {
+            timeout: 3000,  // 超时时间（毫秒）
+            cacheBust: true  // 是否禁用缓存
+        };
+        
+        // 状态管理
+        let currentState = 'loading';
+        let currentIP = null;
+        
+        // 显示指定状态
+        function showState(state) {
+            const states = ['loading', 'success', 'error'];
+            states.forEach(s => {
+                document.getElementById(`${s}-state`).classList.add('hidden');
+            });
+            document.getElementById(`${state}-state`).classList.remove('hidden');
+            currentState = state;
+        }
+        
+        // 读取 IP
+        async function fetchIP() {
+            try {
+                const cacheParam = CONFIG.cacheBust ? `?t=${Date.now()}` : '';
+                const response = await fetch(`current_ip.txt${cacheParam}`, {
+                    cache: 'no-cache'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('无法读取 IP 文件');
+                }
+                
+                const ip = (await response.text()).trim();
+                
+                if (!ip) {
+                    throw new Error('IP 地址为空');
+                }
+                
+                return ip;
+            } catch (error) {
+                console.error('读取 IP 失败:', error);
+                throw error;
+            }
+        }
+        
+        // 检测 IP 可达性
+        async function checkReachability(ip) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
+            
+            try {
+                // 尝试访问健康检查接口
+                const healthUrl = `http://${ip}/health`;
+                const response = await fetch(healthUrl, {
+                    method: 'GET',
+                    signal: controller.signal,
+                    mode: 'cors',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    return true;
+                } else {
+                    throw new Error(`健康检查失败：${response.status}`);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('可达性检测失败:', error);
+                throw error;
+            }
+        }
+        
+        // 跳转到系统
+        function redirectToSystem(ip) {
+            // 显示成功状态
+            document.getElementById('success-ip').textContent = `http://${ip}`;
+            showState('success');
+            
+            // 延迟跳转，让用户看到成功提示
+            setTimeout(() => {
+                window.location.href = `http://${ip}`;
+            }, 1500);
+        }
+        
+        // 显示错误
+        function showError(message) {
+            document.getElementById('error-hint').innerHTML = message;
+            showState('error');
+        }
+        
+        // 主流程
+        async function init() {
+            try {
+                // 步骤 1: 读取 IP
+                const ip = await fetchIP();
+                currentIP = ip;
+                console.log('读取到 IP:', ip);
+                
+                // 步骤 2: 检测可达性
+                const reachable = await checkReachability(ip);
+                
+                if (reachable) {
+                    // 步骤 3a: 可达 → 跳转
+                    redirectToSystem(ip);
+                } else {
+                    // 不应该到这里，因为 checkReachability 会 throw
+                    showError('系统无响应<br>请稍后重试');
+                }
+                
+            } catch (error) {
+                // 步骤 3b: 不可达 → 显示错误
+                console.error('检测失败:', error);
+                
+                let errorMessage = '请确保已连接校园网 WiFi<br>当前系统仅支持校园网内访问';
+                
+                if (error.name === 'AbortError' || error.message.includes('timeout')) {
+                    errorMessage = '连接超时<br>可能不在校园网或系统未启动';
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
+                    errorMessage = '网络连接失败<br>请检查是否连接校园网 WiFi';
+                } else if (error.message.includes('IP 地址为空')) {
+                    errorMessage = 'IP 地址未更新<br>请稍后重试或联系管理员';
+                }
+                
+                showError(errorMessage);
+            }
+        }
+        
+        // 重试
+        function retry() {
+            showState('loading');
+            document.querySelector('.message').textContent = '正在检测网络...';
+            document.querySelector('.hint').textContent = '请稍候，正在检查校园网连接';
+            init();
+        }
+        
+        // 页面加载时执行
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+        });
+        
+        // 防止浏览器后退
+        history.pushState(null, null, location.href);
+        window.onpopstate = function() {
+            history.pushState(null, null, location.href);
+        };
+    </script>
+</body>
+</html>
