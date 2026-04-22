@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>正在跳转 - 智慧校园查寝系统</title>
+    <!-- 禁用缓存，确保每次都重新加载最新 IP -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <style>
         * {
             margin: 0;
@@ -362,7 +366,8 @@
             
             // 延迟跳转，让用户看到成功提示
             setTimeout(() => {
-                window.location.href = `http://${ip}`;
+                // 使用 location.replace 并添加时间戳参数，避免浏览器缓存跳转
+                window.location.replace(`http://${ip}?t=${Date.now()}`);
             }, 1500);
         }
         
