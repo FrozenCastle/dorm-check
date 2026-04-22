@@ -379,43 +379,60 @@
             return new Promise((resolve, reject) => {
                 const timeout = CONFIG.timeout;
                 
-                const img = new Image();
-                let resolved = false;
+                // 先发送 OPTIONS 请求获取 CORS 权限
+                const optionsRequest = new XMLHttpRequest();
+                optionsRequest.open('OPTIONS', `http://${ip}/ping.gif`, true);
+                optionsRequest.setRequestHeader('Access-Control-Request-Method', 'GET');
+                optionsRequest.setRequestHeader('Access-Control-Request-Private-Network', 'true');
+                optionsRequest.setRequestHeader('Origin', window.location.origin);
                 
-                // 设置超时
-                const timeoutId = setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        console.log('[检测] 图片加载超时，判断为不在校园网');
-                        resolve(false);
-                    }
-                }, timeout);
-                
-                // 图片加载成功 - 说明在校园网
-                img.onload = () => {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timeoutId);
-                        console.log('[检测] 图片加载成功，确认在校园网');
-                        resolve(true);
-                    }
+                optionsRequest.onload = () => {
+                    // OPTIONS 请求完成后，再尝试加载图片
+                    const img = new Image();
+                    let resolved = false;
+                    
+                    // 设置超时
+                    const timeoutId = setTimeout(() => {
+                        if (!resolved) {
+                            resolved = true;
+                            console.log('[检测] 图片加载超时，判断为不在校园网');
+                            resolve(false);
+                        }
+                    }, timeout);
+                    
+                    // 图片加载成功 - 说明在校园网
+                    img.onload = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timeoutId);
+                            console.log('[检测] 图片加载成功，确认在校园网');
+                            resolve(true);
+                        }
+                    };
+                    
+                    // 图片加载失败 - 不在校园网
+                    img.onerror = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timeoutId);
+                            console.log('[检测] 图片加载失败，判断为不在校园网');
+                            resolve(false);
+                        }
+                    };
+                    
+                    // 尝试加载内网服务器的检测图片（使用 HTTP）
+                    // 添加时间戳避免缓存
+                    const pingUrl = `http://${ip}/ping.gif?t=${Date.now()}`;
+                    console.log('[检测] 尝试加载:', pingUrl);
+                    img.src = pingUrl;
                 };
                 
-                // 图片加载失败 - 不在校园网
-                img.onerror = () => {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timeoutId);
-                        console.log('[检测] 图片加载失败，判断为不在校园网');
-                        resolve(false);
-                    }
+                optionsRequest.onerror = () => {
+                    console.log('[检测] OPTIONS 请求失败，判断为不在校园网');
+                    resolve(false);
                 };
                 
-                // 尝试加载内网服务器的检测图片（使用 HTTP）
-                // 添加时间戳避免缓存
-                const pingUrl = `http://${ip}/ping.gif?t=${Date.now()}`;
-                console.log('[检测] 尝试加载:', pingUrl);
-                img.src = pingUrl;
+                optionsRequest.send();
             });
         }
         
