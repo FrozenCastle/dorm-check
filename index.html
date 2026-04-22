@@ -93,44 +93,87 @@
         }
 
         // 获取客户端所有本地 IP（通过 WebRTC）
-        function getLocalIPs() {
+        async function getLocalIPs() {
             return new Promise((resolve) => {
                 const ips = new Set();
-                let timeoutId = setTimeout(() => {
-                    pc.close();
-                    resolve(Array.from(ips));
-                }, 2000);
 
-                // 添加 STUN 服务器以提高成功率
                 const pc = new RTCPeerConnection({
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
                         { urls: 'stun:stun1.l.google.com:19302' }
                     ]
                 });
-                pc.createDataChannel('');
+
+                let done = false;
+                const timeoutId = setTimeout(() => {
+                    if (!done) {
+                        done = true;
+                        pc.close();
+                        resolve(Array.from(ips));
+                    }
+                }, 3000);
+
+                // 方法1：通过 onicecandidate 获取 host 候选
+                pc.onicecandidate = (event) => {
+                    if (done) return;
+                    if (!event.candidate) return;
+
+                    const candidate = event.candidate.candidate;
+                    console.log('[WebRTC] 候选:', candidate.substring(0, 100));
+
+                    // 检查是否为 host 类型
+                    if (candidate.includes('typ host')) {
+                        const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/;
+                        const match = candidate.match(ipRegex);
+                        if (match) {
+                            ips.add(match[0]);
+                            console.log('[WebRTC] 添加 host IP:', match[0]);
+                        }
+                    }
+                };
+
+                // 方法2：监听 ICE 收集状态
+                pc.onicegatheringstatechange = () => {
+                    console.log('[WebRTC] 收集状态:', pc.iceGatheringState);
+                    if (pc.iceGatheringState === 'complete' && !done) {
+                        done = true;
+                        clearTimeout(timeoutId);
+                        pc.close();
+                        resolve(Array.from(ips));
+                    }
+                };
+
+                // 创建数据通道触发候选收集
+                pc.createDataChannel('test');
                 pc.createOffer()
                     .then(offer => pc.setLocalDescription(offer))
                     .catch(e => console.warn('WebRTC offer 失败', e));
 
-                pc.onicecandidate = (event) => {
-                    if (!event.candidate) return;
-                    const candidate = event.candidate.candidate;
-                    // 检查是否为 host 类型（本地候选，不经过 STUN）
-                    if (!candidate.includes('typ host')) return;
-                    const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/;
-                    const match = candidate.match(ipRegex);
-                    if (match) {
-                        ips.add(match[0]);
+                // 方法3：1秒后通过 getStats 获取
+                setTimeout(async () => {
+                    if (done) return;
+                    try {
+                        const stats = await pc.getStats();
+                        stats.forEach(report => {
+                            if (report.type === 'local-candidate') {
+                                console.log('[WebRTC Stats] 本地候选:', report);
+                                if (report.address && report.address.startsWith('10.80.')) {
+                                    ips.add(report.address);
+                                    console.log('[WebRTC Stats] 添加 IP:', report.address);
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.warn('[WebRTC] getStats 失败:', e);
                     }
-                };
 
-                // 确保超时后关闭并返回
-                setTimeout(() => {
-                    if (pc.signalingState !== 'closed') pc.close();
-                    clearTimeout(timeoutId);
-                    resolve(Array.from(ips));
-                }, 2500);
+                    if (!done) {
+                        done = true;
+                        clearTimeout(timeoutId);
+                        pc.close();
+                        resolve(Array.from(ips));
+                    }
+                }, 1500);
             });
         }
 
