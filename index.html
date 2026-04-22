@@ -268,8 +268,8 @@
         <!-- 加载状态 -->
         <div id="loading-state">
             <div class="spinner"></div>
-            <div class="message">正在检测网络...</div>
-            <div class="hint">请稍候，正在检查校园网连接</div>
+            <div class="message">正在准备跳转...</div>
+            <div class="hint">请稍候，正在加载系统地址</div>
             <div class="progress-bar"></div>
         </div>
         
@@ -342,35 +342,13 @@
             }
         }
         
-        // 检测 IP 可达性
+        // 检测 IP 可达性（简化版本，直接返回成功）
+        // 由于 HTTPS 页面不能访问 HTTP 资源，所以跳过实际检测
+        // 用户在校内 WiFi 环境下才能访问系统，所以直接跳转即可
         async function checkReachability(ip) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
-            
-            try {
-                // 尝试访问健康检查接口
-                const healthUrl = `http://${ip}/health`;
-                const response = await fetch(healthUrl, {
-                    method: 'GET',
-                    signal: controller.signal,
-                    mode: 'cors',
-                    headers: {
-                        'Cache-Control': 'no-cache'
-                    }
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    return true;
-                } else {
-                    throw new Error(`健康检查失败：${response.status}`);
-                }
-            } catch (error) {
-                clearTimeout(timeoutId);
-                console.error('可达性检测失败:', error);
-                throw error;
-            }
+            // 直接返回成功，让用户尝试访问
+            // 如果不在校内 WiFi，浏览器会提示连接失败
+            return true;
         }
         
         // 跳转到系统
@@ -399,29 +377,21 @@
                 currentIP = ip;
                 console.log('读取到 IP:', ip);
                 
-                // 步骤 2: 检测可达性
-                const reachable = await checkReachability(ip);
-                
-                if (reachable) {
-                    // 步骤 3a: 可达 → 跳转
-                    redirectToSystem(ip);
-                } else {
-                    // 不应该到这里，因为 checkReachability 会 throw
-                    showError('系统无响应<br>请稍后重试');
-                }
+                // 步骤 2: 直接跳转（不检测可达性，避免 HTTPS→HTTP 混合内容错误）
+                // 用户在校内 WiFi 环境下才能访问系统
+                // 如果不在校内 WiFi，浏览器会提示连接失败
+                redirectToSystem(ip);
                 
             } catch (error) {
-                // 步骤 3b: 不可达 → 显示错误
+                // 读取 IP 失败时显示错误
                 console.error('检测失败:', error);
                 
                 let errorMessage = '请确保已连接校园网 WiFi<br>当前系统仅支持校园网内访问';
                 
-                if (error.name === 'AbortError' || error.message.includes('timeout')) {
-                    errorMessage = '连接超时<br>可能不在校园网或系统未启动';
-                } else if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
-                    errorMessage = '网络连接失败<br>请检查是否连接校园网 WiFi';
-                } else if (error.message.includes('IP 地址为空')) {
+                if (error.message.includes('IP 地址为空')) {
                     errorMessage = 'IP 地址未更新<br>请稍后重试或联系管理员';
+                } else if (error.message.includes('无法读取 IP 文件')) {
+                    errorMessage = '配置加载失败<br>请刷新页面重试';
                 }
                 
                 showError(errorMessage);
