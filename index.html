@@ -272,11 +272,11 @@
         <!-- 加载状态 -->
         <div id="loading-state">
             <div class="spinner"></div>
-            <div class="message">正在准备跳转...</div>
-            <div class="hint">请稍候，正在加载系统地址</div>
+            <div class="message">正在检测网络环境...</div>
+            <div class="hint">请稍候，正在验证校园网连接</div>
             <div class="progress-bar"></div>
             <div style="margin-top: 15px; font-size: 11px; opacity: 0.6;">
-                版本：v2.0 | 更新时间：2026-04-21
+                版本：v3.0 | 更新时间：2026-04-22
             </div>
         </div>
         
@@ -307,7 +307,8 @@
         // 配置
         const CONFIG = {
             timeout: 3000,  // 超时时间（毫秒）
-            cacheBust: true  // 是否禁用缓存
+            cacheBust: true,  // 是否禁用缓存
+            useImageDetection: true  // 使用 Image 对象检测（避免 HTTPS 混合内容问题）
         };
         
         // 状态管理
@@ -349,13 +350,56 @@
             }
         }
         
-        // 检测 IP 可达性（简化版本，直接返回成功）
-        // 由于 HTTPS 页面不能访问 HTTP 资源，所以跳过实际检测
-        // 用户在校内 WiFi 环境下才能访问系统，所以直接跳转即可
+        // 使用 Image 对象检测校园网（推荐方法，避免 HTTPS 混合内容问题）
+        function detectCampusNetwork(ip) {
+            return new Promise((resolve, reject) => {
+                const timeout = CONFIG.timeout;
+                
+                const img = new Image();
+                let resolved = false;
+                
+                // 设置超时
+                const timeoutId = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        console.log('[检测] 图片加载超时，判断为不在校园网');
+                        resolve(false);
+                    }
+                }, timeout);
+                
+                // 图片加载成功 - 说明在校园网
+                img.onload = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutId);
+                        console.log('[检测] 图片加载成功，确认在校园网');
+                        resolve(true);
+                    }
+                };
+                
+                // 图片加载失败 - 不在校园网
+                img.onerror = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutId);
+                        console.log('[检测] 图片加载失败，判断为不在校园网');
+                        resolve(false);
+                    }
+                };
+                
+                // 尝试加载内网服务器的检测图片（使用 HTTP）
+                // 添加时间戳避免缓存
+                const pingUrl = `http://${ip}/static/ping.gif?t=${Date.now()}`;
+                console.log('[检测] 尝试加载:', pingUrl);
+                img.src = pingUrl;
+            });
+        }
+        
+        // 检测 IP 可达性（备用方法，如果 Image 检测失败则使用此方法）
         async function checkReachability(ip) {
-            // 直接返回成功，让用户尝试访问
-            // 如果不在校内 WiFi，浏览器会提示连接失败
-            return true;
+            // 由于 HTTPS 页面不能访问 HTTP 资源，此方法已被 Image 检测替代
+            // 保留此函数作为兼容
+            return false;
         }
         
         // 跳转到系统
@@ -385,10 +429,16 @@
                 currentIP = ip;
                 console.log('读取到 IP:', ip);
                 
-                // 步骤 2: 直接跳转（不检测可达性，避免 HTTPS→HTTP 混合内容错误）
-                // 用户在校内 WiFi 环境下才能访问系统
-                // 如果不在校内 WiFi，浏览器会提示连接失败
-                redirectToSystem(ip);
+                // 步骤 2: 使用 Image 对象检测校园网环境
+                const isInCampus = await detectCampusNetwork(ip);
+                
+                if (isInCampus) {
+                    // 步骤 3a: 在校园网 → 跳转
+                    redirectToSystem(ip);
+                } else {
+                    // 步骤 3b: 不在校园网 → 显示错误
+                    showError('未检测到校园网连接<br>请连接校园网 WiFi 后重试');
+                }
                 
             } catch (error) {
                 // 读取 IP 失败时显示错误
