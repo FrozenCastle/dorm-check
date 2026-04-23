@@ -53,7 +53,7 @@
             <div class="message">正在检测网络环境...</div>
             <div class="hint">请稍候，正在验证校园网连接</div>
             <div class="progress-bar"></div>
-            <div style="margin-top: 15px; font-size: 11px; opacity: 0.6;">版本：v4.1 | 基于公网 IP 检测</div>
+            <div style="margin-top: 15px; font-size: 11px; opacity: 0.6;">版本：v4.2 | 支持域名跳转</div>
         </div>
         <div id="success-state" class="hidden">
             <div class="success-icon">✅</div>
@@ -190,12 +190,13 @@
             return false;
         }
 
-        // 跳转到内网系统
+        // 跳转到系统域名
         function redirectToSystem(ip) {
-            document.getElementById('success-ip').textContent = `http://${ip}`;
+            const domain = 'http://dorm-check.ccwu.cc';
+            document.getElementById('success-ip').textContent = domain;
             showState('success');
             setTimeout(() => {
-                window.location.replace(`http://${ip}?t=${Date.now()}`);
+                window.location.replace(`${domain}?t=${Date.now()}`);
             }, 1500);
         }
 
