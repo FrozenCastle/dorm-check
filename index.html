@@ -8,7 +8,6 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <style>
-        /* 样式部分保持不变，与之前相同，此处省略以节省篇幅，实际使用时复制原有样式 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #fff; overflow: hidden; }
         body::before { content: ''; position: absolute; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 50px 50px; animation: backgroundMove 20s linear infinite; z-index: -1; }
@@ -41,6 +40,10 @@
         .error-steps { text-align: left; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 12px 16px; margin-top: 12px; font-size: 12px; }
         .error-steps li { margin: 8px 0; list-style: none; display: flex; align-items: center; gap: 8px; }
         .error-steps li::before { content: "•"; font-size: 16px; font-weight: bold; }
+        .ip-info-box { margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 12px; text-align: left; }
+        .ip-info-row { display: flex; justify-content: space-between; margin: 6px 0; }
+        .ip-info-label { opacity: 0.8; }
+        .ip-info-value { font-weight: bold; font-family: 'Courier New', monospace; }
     </style>
 </head>
 <body>
@@ -50,7 +53,7 @@
             <div class="message">正在检测网络环境...</div>
             <div class="hint">请稍候，正在验证校园网连接</div>
             <div class="progress-bar"></div>
-            <div style="margin-top: 15px; font-size: 11px; opacity: 0.6;">版本：v4.0 | 更新时间：2026-04-22</div>
+            <div style="margin-top: 15px; font-size: 11px; opacity: 0.6;">版本：v4.1 | 基于公网 IP 检测</div>
         </div>
         <div id="success-state" class="hidden">
             <div class="success-icon">✅</div>
@@ -62,36 +65,132 @@
             <div class="error-icon">⚠️</div>
             <div class="message">无法访问系统</div>
             <div class="hint" id="error-hint">未检测到校园网连接</div>
+            <div class="ip-info-box" id="ip-info-box">
+                <div class="ip-info-row">
+                    <span class="ip-info-label">您的公网 IP:</span>
+                    <span class="ip-info-value" id="public-ip-display">--</span>
+                </div>
+                <div class="ip-info-row">
+                    <span class="ip-info-label">系统内网 IP:</span>
+                    <span class="ip-info-value" id="system-ip-display">--</span>
+                </div>
+            </div>
             <div class="error-steps" id="error-steps"></div>
             <button class="retry-btn" onclick="retry()">重新检测</button>
         </div>
     </div>
 
     <script>
-        const CONFIG = { timeout: 4000, cacheBust: true };
-        let currentIP = null;
+        // ==================== 配置区域 ====================
+        // 校园网的公网 IP 段（CIDR 格式）
+        // 根据你提供的 IP 39.191.196.63，这是中国移动的 IP
+        // 建议使用 /16 或 /24 来匹配
+        const SCHOOL_IP_RANGES = [
+            "39.191.0.0/16",      // 中国移动 - 校园网主网段
+            "39.191.196.0/24"     // 更精确的匹配（可选）
+        ];
+
+        // 检测超时（毫秒）
+        const TIMEOUT = 5000;
+
+        // 是否启用缓存破坏
+        const CACHE_BUST = true;
+        // =================================================
+
+        let currentTargetIP = null;
+        let currentPublicIP = null;
 
         function showState(state) {
             ['loading', 'success', 'error'].forEach(s => {
-                document.getElementById(`${s}-state`).classList.add('hidden');
+                const el = document.getElementById(`${s}-state`);
+                if (el) el.classList.add('hidden');
             });
             document.getElementById(`${state}-state`).classList.remove('hidden');
         }
 
-        async function fetchIP() {
+        // 读取动态内网 IP（由 git push 更新）
+        async function fetchTargetIP() {
             try {
-                const cacheParam = CONFIG.cacheBust ? `?t=${Date.now()}` : '';
-                const response = await fetch(`current_ip.txt${cacheParam}`, { cache: 'no-cache' });
+                const url = CACHE_BUST ? `current_ip.txt?t=${Date.now()}` : 'current_ip.txt';
+                const response = await fetch(url, { cache: 'no-cache' });
                 if (!response.ok) throw new Error('无法读取 IP 文件');
                 const ip = (await response.text()).trim();
                 if (!ip) throw new Error('IP 地址为空');
+                if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) throw new Error('IP 格式无效');
                 return ip;
             } catch (error) {
-                console.error('读取 IP 失败:', error);
+                console.error('读取目标 IP 失败:', error);
                 throw error;
             }
         }
 
+        // 获取客户端公网 IP
+        async function fetchPublicIP() {
+            const controllers = [];
+            const timeoutId = setTimeout(() => {
+                controllers.forEach(c => c.abort());
+            }, TIMEOUT);
+
+            const services = [
+                'https://api.ip.sb/ip',
+                'https://api.ipify.org',
+                'https://icanhazip.com',
+                'https://ifconfig.me/ip'
+            ];
+
+            for (const url of services) {
+                try {
+                    const controller = new AbortController();
+                    controllers.push(controller);
+                    const response = await fetch(url, { signal: controller.signal });
+                    if (response.ok) {
+                        let ip = (await response.text()).trim();
+                        ip = ip.replace(/\s/g, '');
+                        if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+                            clearTimeout(timeoutId);
+                            return ip;
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`IP 服务 ${url} 失败:`, e);
+                }
+            }
+            clearTimeout(timeoutId);
+            throw new Error('无法获取公网 IP');
+        }
+
+        // 判断 IP 是否在指定的 CIDR 范围内
+        function ipInCIDR(ip, cidr) {
+            const [network, prefixLen] = cidr.split('/');
+            const prefix = parseInt(prefixLen, 10);
+            if (isNaN(prefix)) return false;
+
+            const ipParts = ip.split('.').map(Number);
+            const netParts = network.split('.').map(Number);
+            if (ipParts.length !== 4 || netParts.length !== 4) return false;
+
+            let ipInt = 0, netInt = 0;
+            for (let i = 0; i < 4; i++) {
+                ipInt = (ipInt << 8) | ipParts[i];
+                netInt = (netInt << 8) | netParts[i];
+            }
+            const mask = ~((1 << (32 - prefix)) - 1);
+            return (ipInt & mask) === (netInt & mask);
+        }
+
+        // 判断公网 IP 是否属于学校
+        function isSchoolIP(publicIP) {
+            for (const cidr of SCHOOL_IP_RANGES) {
+                if (ipInCIDR(publicIP, cidr)) {
+                    console.log(`[检测] IP ${publicIP} 匹配学校网段 ${cidr}`);
+                    return true;
+                }
+            }
+            console.log(`[检测] IP ${publicIP} 不在任何学校网段内`);
+            return false;
+        }
+
+        // 跳转到内网系统
         function redirectToSystem(ip) {
             document.getElementById('success-ip').textContent = `http://${ip}`;
             showState('success');
@@ -100,8 +199,25 @@
             }, 1500);
         }
 
-        function showError(message, detailedStepsHtml) {
+        // 显示错误（带详细步骤和 IP 信息）
+        function showError(message, publicIP, targetIP, detailedStepsHtml = null) {
             document.getElementById('error-hint').innerHTML = message;
+            
+            // 显示 IP 信息
+            if (publicIP) {
+                document.getElementById('public-ip-display').textContent = publicIP;
+            } else {
+                document.getElementById('public-ip-display').textContent = '获取失败';
+            }
+            
+            if (targetIP) {
+                document.getElementById('system-ip-display').textContent = targetIP;
+            } else {
+                document.getElementById('system-ip-display').textContent = '获取失败';
+            }
+            
+            document.getElementById('ip-info-box').classList.remove('hidden');
+            
             const stepsDiv = document.getElementById('error-steps');
             if (detailedStepsHtml) {
                 stepsDiv.innerHTML = detailedStepsHtml;
@@ -112,37 +228,68 @@
             showState('error');
         }
 
+        // 主流程
         async function init() {
             try {
-                // 1. 读取动态 IP
-                const ip = await fetchIP();
-                currentIP = ip;
-                console.log('读取到目标IP:', ip);
+                // 步骤 1：获取目标内网 IP
+                const targetIP = await fetchTargetIP();
+                currentTargetIP = targetIP;
+                console.log('目标内网 IP:', targetIP);
 
-                // 2. 直接跳转（去除网络检测）
-                redirectToSystem(ip);
-            } catch (error) {
-                console.error('初始化失败:', error);
-                let errMsg = '❌ 系统配置加载失败';
-                let steps = '';
-                if (error.message.includes('IP 地址为空')) {
-                    errMsg = '❌ 服务器地址配置缺失';
-                    steps = '<ul><li>⏳ 可能是管理员正在更新配置，请稍后重试</li><li>📞 若长时间无法解决，请联系管理员</li></ul>';
-                } else if (error.message.includes('无法读取 IP 文件')) {
-                    errMsg = '❌ 无法获取服务器地址';
-                    steps = '<ul><li>🌐 请检查你的网络连接是否正常</li><li>🔄 尝试刷新页面或点击下方“重新检测”</li></ul>';
+                // 步骤 2：获取客户端公网 IP
+                const publicIP = await fetchPublicIP();
+                currentPublicIP = publicIP;
+                console.log('客户端公网 IP:', publicIP);
+
+                // 步骤 3：判断是否在校园网内
+                const inCampus = isSchoolIP(publicIP);
+
+                if (inCampus) {
+                    // 在校内，跳转
+                    redirectToSystem(targetIP);
                 } else {
-                    errMsg = '❌ 系统访问失败';
-                    steps = '<ul><li>📶 请确认已连接校园网 WiFi 并完成认证</li><li>📱 关闭手机流量，仅使用 WiFi</li><li>🔄 点击下方按钮重试</li></ul>';
+                    // 不在校内，显示友好提示
+                    showError(
+                        '❌ 未检测到校园网连接',
+                        publicIP,
+                        targetIP,
+                        `
+                        <ul>
+                            <li>📶 您的公网 IP 是 <strong>${publicIP}</strong>，不在校园网 IP 段内</li>
+                            <li>📡 请连接校园网 WiFi（如：iSichuan、eduroam、CMCC-EDU 等）</li>
+                            <li>🔑 打开浏览器访问任意网站，完成校园网认证（输入学号/密码）</li>
+                            <li>📱 请暂时关闭手机移动数据（流量），只保留 WiFi 连接</li>
+                            <li>🔄 完成上述步骤后，点击下方"重新检测"按钮</li>
+                            <li>💡 提示：部分校园网需要每天重新认证一次</li>
+                        </ul>
+                        `
+                    );
                 }
-                showError(errMsg, steps);
+            } catch (error) {
+                console.error('检测流程失败:', error);
+                let errMsg = '❌ 网络检测失败';
+                let steps = '';
+                if (error.message.includes('无法读取 IP 文件')) {
+                    errMsg = '❌ 无法获取系统地址';
+                    steps = '<ul><li>🌐 请检查网络连接后刷新重试</li><li>📞 若问题持续，请联系管理员</li></ul>';
+                } else if (error.message.includes('无法获取公网 IP')) {
+                    errMsg = '❌ 无法获取您的网络信息';
+                    steps = '<ul><li>🔌 请检查网络连接是否正常</li><li>🔄 点击重试按钮</li></ul>';
+                } else {
+                    errMsg = '❌ 检测过程中出现错误';
+                    steps = '<ul><li>🔄 请刷新页面重试</li><li>📞 若多次失败，请联系技术支持</li></ul>';
+                }
+                showError(errMsg, currentPublicIP, currentTargetIP, steps);
             }
         }
 
         function retry() {
             showState('loading');
-            document.querySelector('#loading-state .message').textContent = '正在加载系统地址...';
-            document.querySelector('#loading-state .hint').textContent = '请稍候，正在准备跳转';
+            const msgEl = document.querySelector('#loading-state .message');
+            const hintEl = document.querySelector('#loading-state .hint');
+            if (msgEl) msgEl.textContent = '正在检测网络环境...';
+            if (hintEl) hintEl.textContent = '请稍候，正在验证校园网连接';
+            document.getElementById('ip-info-box').classList.add('hidden');
             init();
         }
 
