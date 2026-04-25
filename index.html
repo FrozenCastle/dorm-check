@@ -178,42 +178,6 @@
             return (ipInt & mask) === (netInt & mask);
         }
 
-        // 使用图片检测网络（不受 CORS 和 Private Network Access 限制）
-        function checkWithImage(url) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                let resolved = false;
-
-                const timer = setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        console.log('检测超时');
-                        resolve(false);
-                    }
-                }, TIMEOUT);
-
-                img.onload = function() {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timer);
-                        console.log('图片加载成功，网络可达');
-                        resolve(true);
-                    }
-                };
-
-                img.onerror = function() {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timer);
-                        console.log('图片加载失败，网络不可达');
-                        resolve(false);
-                    }
-                };
-
-                img.src = url + '?t=' + Date.now();
-            });
-        }
-
         // 判断公网 IP 是否属于学校
         function isSchoolIP(publicIP) {
             for (const cidr of SCHOOL_IP_RANGES) {
@@ -275,51 +239,23 @@
                 currentTargetIP = targetIP;
                 console.log('目标内网 IP:', targetIP);
 
-                // 步骤 2：检查当前页面协议
-                const currentProtocol = window.location.protocol;
-                const isHttps = currentProtocol === 'https:';
-                console.log('当前协议:', currentProtocol);
-                console.log('是否 HTTPS:', isHttps);
-
-                let systemUrl, pingUrl;
-                if (isHttps) {
-                    // HTTPS 页面：使用 HTTPS 域名访问系统
-                    const domain = 'dorm-check.ccwu.cc';
-                    systemUrl = `https://${domain}`;
-                    pingUrl = `${systemUrl}/ping.gif`;
-                    console.log('尝试访问系统 (HTTPS 域名):', systemUrl);
-                } else {
-                    // HTTP 页面：使用 HTTP 访问系统
-                    systemUrl = `http://${targetIP}:15000`;
-                    pingUrl = `${systemUrl}/ping.gif`;
-                    console.log('尝试访问系统 (HTTP):', systemUrl);
-                }
-                console.log('最终访问 URL:', pingUrl);
-
+                // 步骤 2：获取公网 IP
+                let publicIP = null;
                 try {
-                    console.log('开始检测网络...');
+                    publicIP = await fetchPublicIP();
+                    currentPublicIP = publicIP;
+                    console.log('获取到公网 IP:', publicIP);
+                } catch (e) {
+                    console.warn('无法获取公网 IP:', e);
+                }
 
-                    const success = await checkWithImage(pingUrl);
-
-                    if (success) {
-                        console.log('✅ 成功访问系统，在校园网内');
-                        redirectToSystem(targetIP);
-                    } else {
-                        throw new Error('图片加载失败');
-                    }
-                } catch (error) {
-                    console.log('❌ 无法访问系统:', error.message);
-                    
-                    // 尝试获取公网 IP 用于错误信息
-                    let publicIP = null;
-                    try {
-                        publicIP = await fetchPublicIP();
-                        currentPublicIP = publicIP;
-                        console.log('获取到公网 IP:', publicIP);
-                    } catch (e) {
-                        console.warn('无法获取公网 IP:', e);
-                    }
-
+                // 步骤 3：判断是否在校园网 IP 段内
+                if (publicIP && isSchoolIP(publicIP)) {
+                    console.log('✅ 公网 IP 属于校园网网段，在校园网内');
+                    // 跳转到系统
+                    redirectToSystem(targetIP);
+                } else {
+                    console.log('❌ 公网 IP 不属于校园网网段，不在校园网内');
                     // 显示错误信息
                     showError(
                         '❌ 未检测到校园网连接',
