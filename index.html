@@ -232,117 +232,79 @@
         // 主流程
         async function init() {
             try {
+                console.log('=== 开始网络检测 ===');
+                
                 // 步骤 1：获取目标内网 IP
                 const targetIP = await fetchTargetIP();
                 currentTargetIP = targetIP;
                 console.log('目标内网 IP:', targetIP);
 
                 // 步骤 2：检查当前页面协议
-                const isHttps = window.location.protocol === 'https:';
-                console.log('当前协议:', window.location.protocol);
+                const currentProtocol = window.location.protocol;
+                const isHttps = currentProtocol === 'https:';
+                console.log('当前协议:', currentProtocol);
+                console.log('是否 HTTPS:', isHttps);
 
+                let systemUrl, pingUrl;
                 if (isHttps) {
                     // HTTPS 页面：使用 HTTPS 访问系统
-                    const systemUrl = `https://${targetIP}:15000`;
-                    const pingUrl = `${systemUrl}/ping.gif`;
+                    systemUrl = `https://${targetIP}:15000`;
+                    pingUrl = `${systemUrl}/ping.gif`;
                     console.log('尝试访问系统 (HTTPS):', systemUrl);
-
-                    try {
-                        // 尝试访问 ping.gif 端点
-                        const response = await fetch(pingUrl, {
-                            signal: AbortSignal.timeout(TIMEOUT),
-                            mode: 'cors',
-                            credentials: 'omit'
-                        });
-
-                        if (response.ok) {
-                            // 访问成功，说明在校园网内
-                            console.log('✅ 成功访问系统，在校园网内');
-                            redirectToSystem(targetIP);
-                        } else {
-                            // 访问失败（HTTP 错误）
-                            throw new Error(`HTTP 错误: ${response.status}`);
-                        }
-                    } catch (error) {
-                        console.log('❌ 无法访问系统:', error.message);
-                        
-                        // 尝试获取公网 IP 用于错误信息
-                        let publicIP = null;
-                        try {
-                            publicIP = await fetchPublicIP();
-                            currentPublicIP = publicIP;
-                        } catch (e) {
-                            console.warn('无法获取公网 IP:', e);
-                        }
-
-                        // 显示错误信息
-                        showError(
-                            '❌ 未检测到校园网连接',
-                            publicIP,
-                            targetIP,
-                            `
-                            <ul>
-                                <li>📶 无法连接到系统 (${targetIP}:15000)</li>
-                                <li>📡 请连接校园网 WiFi（如：iSichuan、eduroam、CMCC-EDU 等）</li>
-                                <li>🔑 打开浏览器访问任意网站，完成校园网认证（输入学号/密码）</li>
-                                <li>📱 请暂时关闭手机移动数据（流量），只保留 WiFi 连接</li>
-                                <li>🔄 完成上述步骤后，点击下方"重新检测"按钮</li>
-                                <li>💡 提示：部分校园网需要每天重新认证一次</li>
-                            </ul>
-                            `
-                        );
-                    }
                 } else {
                     // HTTP 页面：使用 HTTP 访问系统
-                    const systemUrl = `http://${targetIP}:15000`;
-                    const pingUrl = `${systemUrl}/ping.gif`;
+                    systemUrl = `http://${targetIP}:15000`;
+                    pingUrl = `${systemUrl}/ping.gif`;
                     console.log('尝试访问系统 (HTTP):', systemUrl);
+                }
+                console.log('最终访问 URL:', pingUrl);
 
-                    try {
-                        // 尝试访问 ping.gif 端点
-                        const response = await fetch(pingUrl, {
-                            signal: AbortSignal.timeout(TIMEOUT),
-                            mode: 'cors',
-                            credentials: 'omit'
-                        });
+                try {
+                    // 尝试访问 ping.gif 端点
+                    console.log('开始访问 ping.gif...');
+                    const response = await fetch(pingUrl, {
+                        signal: AbortSignal.timeout(TIMEOUT),
+                        mode: 'cors',
+                        credentials: 'omit'
+                    });
 
-                        if (response.ok) {
-                            // 访问成功，说明在校园网内
-                            console.log('✅ 成功访问系统，在校园网内');
-                            redirectToSystem(targetIP);
-                        } else {
-                            // 访问失败（HTTP 错误）
-                            throw new Error(`HTTP 错误: ${response.status}`);
-                        }
-                    } catch (error) {
-                        console.log('❌ 无法访问系统:', error.message);
-                        
-                        // 尝试获取公网 IP 用于错误信息
-                        let publicIP = null;
-                        try {
-                            publicIP = await fetchPublicIP();
-                            currentPublicIP = publicIP;
-                        } catch (e) {
-                            console.warn('无法获取公网 IP:', e);
-                        }
-
-                        // 显示错误信息
-                        showError(
-                            '❌ 未检测到校园网连接',
-                            publicIP,
-                            targetIP,
-                            `
-                            <ul>
-                                <li>📶 无法连接到系统 (${targetIP}:15000)</li>
-                                <li>📡 请连接校园网 WiFi（如：iSichuan、eduroam、CMCC-EDU 等）</li>
-                                <li>🔑 打开浏览器访问任意网站，完成校园网认证（输入学号/密码）</li>
-                                <li>📱 请暂时关闭手机移动数据（流量），只保留 WiFi 连接</li>
-                                <li>🔄 完成上述步骤后，点击下方"重新检测"按钮</li>
-                                <li>💡 提示：部分校园网需要每天重新认证一次</li>
-                            </ul>
-                            `
-                        );
+                    if (response.ok) {
+                        // 访问成功，说明在校园网内
+                        console.log('✅ 成功访问系统，在校园网内');
+                        redirectToSystem(targetIP);
+                    } else {
+                        // 访问失败（HTTP 错误）
+                        throw new Error(`HTTP 错误: ${response.status}`);
                     }
+                } catch (error) {
+                    console.log('❌ 无法访问系统:', error.message);
+                    
+                    // 尝试获取公网 IP 用于错误信息
+                    let publicIP = null;
+                    try {
+                        publicIP = await fetchPublicIP();
+                        currentPublicIP = publicIP;
+                        console.log('获取到公网 IP:', publicIP);
+                    } catch (e) {
+                        console.warn('无法获取公网 IP:', e);
+                    }
+
+                    // 显示错误信息
+                    showError(
+                        '❌ 未检测到校园网连接',
+                        publicIP,
+                        targetIP,
+                        `
+                        <ul>
+                            <li>📶 无法连接到系统 (${targetIP}:15000)</li>
+                            <li>📡 请连接校园网 WiFi（如：iSichuan、eduroam、CMCC-EDU 等）</li>
+                            <li>🔑 打开浏览器访问任意网站，完成校园网认证（输入学号/密码）</li>
+                            <li>📱 请暂时关闭手机移动数据（流量），只保留 WiFi 连接</li>
+                            <li>🔄 完成上述步骤后，点击下方"重新检测"按钮</li>
+                            <li>💡 提示：部分校园网需要每天重新认证一次</li>
+                        </ul>
+                        `
+                    );
                 }
             } catch (error) {
                 console.error('检测流程失败:', error);
