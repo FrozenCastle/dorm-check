@@ -178,6 +178,42 @@
             return (ipInt & mask) === (netInt & mask);
         }
 
+        // 使用图片检测网络（不受 CORS 和 Private Network Access 限制）
+        function checkWithImage(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                let resolved = false;
+
+                const timer = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        console.log('检测超时');
+                        resolve(false);
+                    }
+                }, TIMEOUT);
+
+                img.onload = function() {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timer);
+                        console.log('图片加载成功，网络可达');
+                        resolve(true);
+                    }
+                };
+
+                img.onerror = function() {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timer);
+                        console.log('图片加载失败，网络不可达');
+                        resolve(false);
+                    }
+                };
+
+                img.src = url + '?t=' + Date.now();
+            });
+        }
+
         // 判断公网 IP 是否属于学校
         function isSchoolIP(publicIP) {
             for (const cidr of SCHOOL_IP_RANGES) {
@@ -261,21 +297,15 @@
                 console.log('最终访问 URL:', pingUrl);
 
                 try {
-                    // 尝试访问 ping.gif 端点
-                    console.log('开始访问 ping.gif...');
-                    const response = await fetch(pingUrl, {
-                        signal: AbortSignal.timeout(TIMEOUT),
-                        mode: 'cors',
-                        credentials: 'omit'
-                    });
+                    console.log('开始检测网络...');
 
-                    if (response.ok) {
-                        // 访问成功，说明在校园网内
+                    const success = await checkWithImage(pingUrl);
+
+                    if (success) {
                         console.log('✅ 成功访问系统，在校园网内');
                         redirectToSystem(targetIP);
                     } else {
-                        // 访问失败（HTTP 错误）
-                        throw new Error(`HTTP 错误: ${response.status}`);
+                        throw new Error('图片加载失败');
                     }
                 } catch (error) {
                     console.log('❌ 无法访问系统:', error.message);
