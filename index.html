@@ -247,10 +247,11 @@
 
                 let systemUrl, pingUrl;
                 if (isHttps) {
-                    // HTTPS 页面：使用 HTTPS 访问系统
-                    systemUrl = `https://${targetIP}:15000`;
+                    // HTTPS 页面：使用 HTTPS 域名访问系统
+                    const domain = 'dorm-check.ccwu.cc';
+                    systemUrl = `https://${domain}`;
                     pingUrl = `${systemUrl}/ping.gif`;
-                    console.log('尝试访问系统 (HTTPS):', systemUrl);
+                    console.log('尝试访问系统 (HTTPS 域名):', systemUrl);
                 } else {
                     // HTTP 页面：使用 HTTP 访问系统
                     systemUrl = `http://${targetIP}:15000`;
