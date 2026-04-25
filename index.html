@@ -247,11 +247,58 @@
 
                 let systemUrl, pingUrl;
                 if (isHttps) {
-                    // HTTPS 页面：使用 HTTPS 域名访问系统
-                    const domain = 'dorm-check.ccwu.cc';
-                    systemUrl = `https://${domain}`;
-                    pingUrl = `${systemUrl}/ping.gif`;
-                    console.log('尝试访问系统 (HTTPS 域名):', systemUrl);
+                    // HTTPS 页面：使用公网 IP 检测作为备选方案
+                    // 因为 HTTPS 页面不能直接访问 HTTP IP（混合内容限制）
+                    // 而且域名可能无法解析
+                    console.log('HTTPS 页面：使用公网 IP 检测');
+                    
+                    try {
+                        const publicIP = await fetchPublicIP();
+                        currentPublicIP = publicIP;
+                        console.log('获取到公网 IP:', publicIP);
+
+                        // 使用原有的 IP 段检测逻辑
+                        const inCampus = isSchoolIP(publicIP);
+
+                        if (inCampus) {
+                            // 在校内，跳转
+                            console.log('✅ 公网 IP 检测显示在校园网内');
+                            redirectToSystem(targetIP);
+                        } else {
+                            // 不在校内，显示友好提示
+                            showError(
+                                '❌ 未检测到校园网连接',
+                                publicIP,
+                                targetIP,
+                                `
+                                <ul>
+                                    <li>📶 您的公网 IP 是 <strong>${publicIP}</strong>，不在校园网 IP 段内</li>
+                                    <li>📡 请连接校园网 WiFi（如：iSichuan、eduroam、CMCC-EDU 等）</li>
+                                    <li>🔑 打开浏览器访问任意网站，完成校园网认证（输入学号/密码）</li>
+                                    <li>📱 请暂时关闭手机移动数据（流量），只保留 WiFi 连接</li>
+                                    <li>🔄 完成上述步骤后，点击下方"重新检测"按钮</li>
+                                    <li>💡 提示：部分校园网需要每天重新认证一次</li>
+                                </ul>
+                                `
+                            );
+                        }
+                    } catch (error) {
+                        console.log('❌ 公网 IP 检测失败:', error.message);
+                        showError(
+                            '❌ 网络检测失败',
+                            null,
+                            targetIP,
+                            `
+                            <ul>
+                                <li>🌐 请检查网络连接后刷新重试</li>
+                                <li>📞 若问题持续，请联系管理员</li>
+                            </ul>
+                            `
+                        );
+                    }
+                    
+                    // 跳过后续的 ping.gif 访问
+                    return;
                 } else {
                     // HTTP 页面：使用 HTTP 访问系统
                     systemUrl = `http://${targetIP}:15000`;
