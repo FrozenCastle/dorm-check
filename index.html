@@ -36,14 +36,33 @@
         @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .hidden { display: none !important; }
-        @media (max-width: 480px) { .container { padding: 30px 20px; } .message { font-size: 18px; } .hint { font-size: 13px; } .spinner { width: 50px; height: 50px; } }
-        .error-steps { text-align: left; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 12px 16px; margin-top: 12px; font-size: 12px; }
-        .error-steps li { margin: 8px 0; list-style: none; display: flex; align-items: center; gap: 8px; }
-        .error-steps li::before { content: "•"; font-size: 16px; font-weight: bold; }
+        @media (max-width: 480px) {
+            .container { padding: 25px 18px; max-width: 95%; }
+            .message { font-size: 19px; margin-bottom: 10px; }
+            .hint { font-size: 13px; line-height: 1.6; }
+            .spinner { width: 50px; height: 50px; margin-bottom: 20px; }
+            .error-icon, .success-icon { font-size: 45px; margin-bottom: 15px; }
+            .error-steps { font-size: 12px; padding: 10px 12px; }
+            .error-steps li { font-size: 12px; margin: 6px 0; }
+            .error-steps li::before { font-size: 14px; }
+            .ip-info-box { padding: 10px; margin-top: 12px; }
+            .ip-info-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+            .ip-info-label { font-size: 11px; }
+            .ip-info-value { font-size: 13px; }
+            .retry-btn { padding: 10px 28px; font-size: 15px; margin-top: 20px; }
+            .ip-display { padding: 10px; margin-top: 15px; }
+            .ip-label { font-size: 11px; }
+            .ip-value { font-size: 14px; }
+            .progress-bar { margin-top: 15px; }
+        }
+        .error-steps { text-align: left; background: rgba(0,0,0,0.2); border-radius: 12px; padding: 12px 16px; margin-top: 12px; font-size: 12px; line-height: 1.6; }
+        .error-steps li { margin: 8px 0; list-style: none; display: flex; align-items: flex-start; gap: 8px; }
+        .error-steps li::before { content: "•"; font-size: 16px; font-weight: bold; flex-shrink: 0; margin-top: 2px; }
+        .error-steps strong { font-weight: 600; color: #ffeb3b; }
         .ip-info-box { margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 12px; text-align: left; }
-        .ip-info-row { display: flex; justify-content: space-between; margin: 6px 0; }
-        .ip-info-label { opacity: 0.8; }
-        .ip-info-value { font-weight: bold; font-family: 'Courier New', monospace; }
+        .ip-info-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; gap: 10px; }
+        .ip-info-label { opacity: 0.8; flex-shrink: 0; white-space: nowrap; }
+        .ip-info-value { font-weight: bold; font-family: 'Courier New', monospace; text-align: right; word-break: break-all; }
     </style>
 </head>
 <body>
