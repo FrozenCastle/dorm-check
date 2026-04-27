@@ -60,6 +60,9 @@
         .error-steps li::before { content: "•"; font-size: 16px; font-weight: bold; flex-shrink: 0; margin-top: 2px; }
         .error-steps strong { font-weight: 600; color: #ffeb3b; word-break: break-all; }
         .error-steps br { margin-bottom: 4px; }
+        .line-content { display: flex; flex-direction: column; flex: 1; }
+        .first-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .second-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .ip-info-box { margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; font-size: 12px; text-align: left; }
         .ip-info-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; gap: 10px; }
         .ip-info-label { opacity: 0.8; flex-shrink: 0; white-space: nowrap; }
@@ -298,7 +301,10 @@
                         `
                         <ul>
                             <li>
-                                📶 您的公网 IP 是 <strong>${publicIP}</strong>，<br>不在校园网 IP 段内，疑似使用流量访问
+                                <div class="line-content">
+                                    <div class="first-line">📶 您的公网 IP 是 <strong>${publicIP}</strong>，</div>
+                                    <div class="second-line">不在校园网 IP 段内，疑似使用流量访问</div>
+                                </div>
                             </li>
                             <li>📡 请连接校园网 WiFi（lszjy）</li>
                             <li>📱 请暂时关闭手机移动数据（流量），只保留 WiFi 连接</li>
